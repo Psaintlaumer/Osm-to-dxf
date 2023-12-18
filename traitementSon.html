@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.40/Tone.js"
+      charset="utf-8"
+    ></script>
+    <title>Document</title>
+
+    <style>
+      #circle {
+        position: absolute;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="btn-enregistrer">enregistrer</button>
+
+    <canvas id="canvas-draw" width="3000" height="3000"></canvas>
+  </body>
+  <script type="text/javascript">
+    const mic = new Tone.UserMedia();
+    const micFFT = new Tone.FFT(16384);
+    mic.connect(micFFT);
+
+    const btnEn = document.getElementById("btn-enregistrer");
+    btnEn.addEventListener("click", async () => {
+      await mic.open();
+      console.log("Mic has started");
+      setInterval(() => {
+        draw();
+      }, 1000);
+    });
+
+    async function draw() {
+      let d = await micFFT;
+      console.log(d.getValue());
+    }
+
+    let context = AudioContext;
+    let analyser = AnalyserNode;
+    let NBVAL = 0;
+    let MAX_FREQUENCE = 500;
+    const INTERVAL_MS = 50;
+    let okToDraw = false;
+    let second = 0;
+    const can = document.getElementById("canvas-draw");
+    const ctx = can.getContext("2d");
+    ctx.fillStyle = "rgb(0, 0, 0)";
+    ctx.fillRect(0, 0, 3000, 3000);
+
+    function connectAudioAPI() {
+      try {
+        context = new AudioContext();
+        analyser = context.createAnalyser();
+        analyser.fftSize = 32768;
+
+        navigator.mediaDevices
+          .getUserMedia({ audio: true, video: false })
+          .then(function (stream) {
+            mediaSource = context.createMediaStreamSource(stream);
+            console.log("This is media source :");
+            console.log(mediaSource);
+            mediaSource.connect(analyser);
+            NBVAL = context.sampleRate;
+            setInterval(() => {
+              if (okToDraw) animate();
+              context.resume();
+            }, INTERVAL_MS);
+          })
+          .catch(function (err) {
+            alert(err);
+          });
+      } catch (e) {
+        alert(e);
+      }
+    }
+    function updateFFT() {
+      let timeData = new Uint8Array(analyser.frequencyBinCount);
+
+      // /console.log(context);
+
+      analyser.getByteFrequencyData(timeData);
+      //console.log(timeData.length);
+
+      dessiner(timeData);
+      //console.table(timeData);
+    }
+    function animate() {
+      updateFFT();
+    }
+    function dessiner(data) {
+      const can = document.getElementById("canvas-draw");
+      const ctx = can.getContext("2d");
+      NBVAL = context.sampleRate;
+      const valeurMaxi = Math.round((MAX_FREQUENCE * NBVAL) / 2 / data.length);
+      console.log({ valeurMaxi, NBVAL });
+
+      const ECHELLE = 4;
+      ctx.fillStyle = "rgb(0, 0, 0)";
+      //ctx.fillRect(0, 0, 3000, 3000);
+      ctx.fillStyle = "rgb(255, 255, 255)";
+      for (let h = 1; h < 50; h++) {
+        ctx.fillRect((100 / 6) * h, 0, 0.5, 3000);
+      }
+
+      for (u = 1; u < 10; u++) {
+        ctx.fillRect(
+          0,
+          ECHELLE * getValFromFrequency(u * 100, data.length),
+          3000,
+          5
+        );
+      }
+      ctx.fillStyle = "rgb(0, 255, 0)";
+      ctx.fillRect(0, ECHELLE * getValFromFrequency(440, data.length), 3000, 5);
+      ctx.fillRect(0, ECHELLE * getValFromFrequency(215, data.length), 3000, 5);
+      ctx.fillRect(0, ECHELLE * getValFromFrequency(225, data.length), 3000, 5);
+
+      data.forEach((item, i) => {
+        if (i < valeurMaxi && item >= 0) {
+          let color = item > 200 ? `rgb(${item} , 0,0)` : `rgb(0, ${item},0)`;
+          ctx.fillStyle = color;
+          ctx.fillRect(second, i * ECHELLE, ECHELLE, ECHELLE);
+        } else {
+        }
+      });
+      second++;
+    }
+    function getValFromFrequency(freq, nombreVal) {
+      const maxFrequence = context.sampleRate / 2;
+      return (nombreVal * freq) / maxFrequence;
+    }
+
+    function moveCircle(offset) {
+      const currentLeft = parseInt(circle.style.left) || 0;
+      circle.style.left = currentLeft + offset + "px";
+    }
+
+    const btn = document.getElementById("btn-enregistrer");
+    btn.addEventListener("click", () => {
+      okToDraw = !okToDraw;
+    });
+
+    window.onload = (event) => {
+      connectAudioAPI();
+    };
+  </script>
+</html>
